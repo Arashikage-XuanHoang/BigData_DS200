@@ -199,45 +199,100 @@ public class Bai03 {
     // ========================
     // MAIN
     // ========================
+    // public static void main(String[] args) throws Exception {
+
+    //     Configuration conf = new Configuration();
+
+    //     // JOB 1
+    //     Job job1 = Job.getInstance(conf, "Join User Rating");
+    //     job1.setJarByClass(Bai03.class);
+
+    //     MultipleInputs.addInputPath(job1, new Path(args[0]),
+    //             TextInputFormat.class, RatingMapper.class);
+    //     MultipleInputs.addInputPath(job1, new Path(args[1]),
+    //             TextInputFormat.class, UserMapper.class);
+
+    //     job1.setReducerClass(JoinUserRatingReducer.class);
+    //     job1.setOutputKeyClass(Text.class);
+    //     job1.setOutputValueClass(Text.class);
+
+    //     FileOutputFormat.setOutputPath(job1, new Path(args[2]));
+
+    //     if (!job1.waitForCompletion(true)) System.exit(1);
+
+    //     // JOB 2
+    //     Job job2 = Job.getInstance(conf, "Join Movie");
+    //     job2.setJarByClass(Bai03.class);
+
+    //     MultipleInputs.addInputPath(job2, new Path(args[2]),
+    //             TextInputFormat.class, GenderRatingMapper.class);
+    //     MultipleInputs.addInputPath(job2, new Path(args[3]),
+    //             TextInputFormat.class, MovieMapper.class);
+
+    //     job2.setReducerClass(JoinMovieReducer.class);
+    //     job2.setOutputKeyClass(Text.class);
+    //     job2.setOutputValueClass(Text.class);
+
+    //     FileOutputFormat.setOutputPath(job2, new Path(args[4]));
+
+    //     if (!job2.waitForCompletion(true)) System.exit(1);
+
+    //     // JOB 3
+    //     Job job3 = Job.getInstance(conf, "Final Avg");
+    //     job3.setJarByClass(Bai03.class);
+
+    //     job3.setMapperClass(FinalMapper.class);
+    //     job3.setReducerClass(AvgReducer.class);
+
+    //     job3.setOutputKeyClass(Text.class);
+    //     job3.setOutputValueClass(Text.class);
+
+    //     FileInputFormat.addInputPath(job3, new Path(args[4]));
+    //     FileOutputFormat.setOutputPath(job3, new Path(args[5]));
+
+    //     System.exit(job3.waitForCompletion(true) ? 0 : 1);
+    // }
     public static void main(String[] args) throws Exception {
+
+        if (args.length < 7) {
+            System.err.println("Usage: Bai03 <ratings1> <ratings2> <users> <movies> <out1> <out2> <out3>");
+            System.exit(1);
+        }
 
         Configuration conf = new Configuration();
 
-        // JOB 1
+        // ================= JOB 1 =================
         Job job1 = Job.getInstance(conf, "Join User Rating");
         job1.setJarByClass(Bai03.class);
 
-        MultipleInputs.addInputPath(job1, new Path(args[0]),
-                TextInputFormat.class, RatingMapper.class);
-        MultipleInputs.addInputPath(job1, new Path(args[1]),
-                TextInputFormat.class, UserMapper.class);
+        MultipleInputs.addInputPath(job1, new Path(args[0]), TextInputFormat.class, RatingMapper.class);
+        MultipleInputs.addInputPath(job1, new Path(args[1]), TextInputFormat.class, RatingMapper.class);
+        MultipleInputs.addInputPath(job1, new Path(args[2]), TextInputFormat.class, UserMapper.class);
 
         job1.setReducerClass(JoinUserRatingReducer.class);
         job1.setOutputKeyClass(Text.class);
         job1.setOutputValueClass(Text.class);
 
-        FileOutputFormat.setOutputPath(job1, new Path(args[2]));
+        FileOutputFormat.setOutputPath(job1, new Path(args[4]));
 
         if (!job1.waitForCompletion(true)) System.exit(1);
 
-        // JOB 2
+        // ================= JOB 2 =================
         Job job2 = Job.getInstance(conf, "Join Movie");
         job2.setJarByClass(Bai03.class);
 
-        MultipleInputs.addInputPath(job2, new Path(args[2]),
-                TextInputFormat.class, GenderRatingMapper.class);
-        MultipleInputs.addInputPath(job2, new Path(args[3]),
-                TextInputFormat.class, MovieMapper.class);
+        MultipleInputs.addInputPath(job2, new Path(args[4]), TextInputFormat.class, GenderRatingMapper.class);
+        MultipleInputs.addInputPath(job2, new Path(args[3]), TextInputFormat.class, MovieMapper.class);
 
         job2.setReducerClass(JoinMovieReducer.class);
         job2.setOutputKeyClass(Text.class);
         job2.setOutputValueClass(Text.class);
 
-        FileOutputFormat.setOutputPath(job2, new Path(args[4]));
+        FileOutputFormat.setOutputPath(job2, new Path(args[5]));
 
         if (!job2.waitForCompletion(true)) System.exit(1);
 
-        // JOB 3
+        // ================= JOB 3 =================
         Job job3 = Job.getInstance(conf, "Final Avg");
         job3.setJarByClass(Bai03.class);
 
@@ -247,8 +302,8 @@ public class Bai03 {
         job3.setOutputKeyClass(Text.class);
         job3.setOutputValueClass(Text.class);
 
-        FileInputFormat.addInputPath(job3, new Path(args[4]));
-        FileOutputFormat.setOutputPath(job3, new Path(args[5]));
+        FileInputFormat.addInputPath(job3, new Path(args[5]));
+        FileOutputFormat.setOutputPath(job3, new Path(args[6]));
 
         System.exit(job3.waitForCompletion(true) ? 0 : 1);
     }
