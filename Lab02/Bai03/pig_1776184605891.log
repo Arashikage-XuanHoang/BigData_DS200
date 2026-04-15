@@ -1,0 +1,48 @@
+Pig Stack Trace
+---------------
+ERROR 2244: Job job_local1675188977_0009 failed, hadoop does not return any error message
+
+org.apache.pig.backend.executionengine.ExecException: ERROR 2244: Job job_local1675188977_0009 failed, hadoop does not return any error message
+	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:181)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+	at org.apache.pig.Main.run(Main.java:630)
+	at org.apache.pig.Main.main(Main.java:175)
+================================================================================
+Pig Stack Trace
+---------------
+ERROR 2244: Job failed, hadoop does not return any error message
+
+org.apache.pig.backend.executionengine.ExecException: ERROR 2244: Job failed, hadoop does not return any error message
+	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:181)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+	at org.apache.pig.Main.run(Main.java:630)
+	at org.apache.pig.Main.main(Main.java:175)
+================================================================================
+Pig Stack Trace
+---------------
+ERROR 2244: Job job_local1873433025_0008 failed, hadoop does not return any error message
+
+org.apache.pig.backend.executionengine.ExecException: ERROR 2244: Job job_local1873433025_0008 failed, hadoop does not return any error message
+	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:181)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+	at org.apache.pig.Main.run(Main.java:630)
+	at org.apache.pig.Main.main(Main.java:175)
+================================================================================
+Pig Stack Trace
+---------------
+ERROR 2244: Job failed, hadoop does not return any error message
+
+org.apache.pig.backend.executionengine.ExecException: ERROR 2244: Job failed, hadoop does not return any error message
+	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:181)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+	at org.apache.pig.Main.run(Main.java:630)
+	at org.apache.pig.Main.main(Main.java:175)
+================================================================================
