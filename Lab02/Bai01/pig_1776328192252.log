@@ -1,0 +1,20 @@
+Error before Pig is launched
+----------------------------
+ERROR 2997: Encountered IOException. File bai02.pig does not exist
+
+java.io.FileNotFoundException: File bai02.pig does not exist
+	at org.apache.hadoop.fs.RawLocalFileSystem.deprecatedGetFileStatus(RawLocalFileSystem.java:980)
+	at org.apache.hadoop.fs.RawLocalFileSystem.getFileLinkStatusInternal(RawLocalFileSystem.java:1301)
+	at org.apache.hadoop.fs.RawLocalFileSystem.getFileStatus(RawLocalFileSystem.java:970)
+	at org.apache.hadoop.fs.FilterFileSystem.getFileStatus(FilterFileSystem.java:462)
+	at org.apache.pig.impl.io.FileLocalizer.fetchFilesInternal(FileLocalizer.java:818)
+	at org.apache.pig.impl.io.FileLocalizer.fetchFile(FileLocalizer.java:756)
+	at org.apache.pig.Main.run(Main.java:572)
+	at org.apache.pig.Main.main(Main.java:175)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.apache.hadoop.util.RunJar.run(RunJar.java:333)
+	at org.apache.hadoop.util.RunJar.main(RunJar.java:254)
+================================================================================

@@ -1,98 +1,49 @@
--- =========================
--- LOAD DATA
--- =========================
+-- Bài 2: Thống kê trên dữ liệu hotel-review
+-- Input: /user/hadoop/lab02/input/hotel-review.csv (phân cách bằng ';')
+-- Output: 
+--   1. WordCount (từ xuất hiện >500 lần): /user/hadoop/lab02/output_bai02_wordcount
+--   2. Category count: /user/hadoop/lab02/output_bai02_category
+--   3. Aspect count: /user/hadoop/lab02/output_bai02_aspect
 
-reviews = LOAD '/mnt/0498342198341420/UIT_DS_Third_Year_Second_Semester_2025_2026/BigData_DS200/Lab02/input/hotel-review.csv'
-USING PigStorage(';')
-AS (id:int, review:chararray, category:chararray, subcategory:chararray, sentiment:chararray);
+-- Đọc dữ liệu thô
+reviews_raw = LOAD '/user/hadoop/lab02/input/hotel-review.csv'
+              USING PigStorage(';')
+              AS (id:int, review:chararray, category:chararray, aspect:chararray, sentiment:chararray);
 
-stopwords = LOAD '/mnt/0498342198341420/UIT_DS_Third_Year_Second_Semester_2025_2026/BigData_DS200/Lab02/input/stopwords.txt'
-USING PigStorage()
-AS (word:chararray);
+-- ========== 1. Thống kê tần số từ (có loại stopword để kết quả ý nghĩa) ==========
+-- Đọc stopwords (giả sử vẫn dùng file stopwords.txt đã upload)
+stopwords_raw = LOAD '/user/hadoop/lab02/input/stopwords.txt' AS (stopword:chararray);
 
--- =========================
--- BƯỚC 1: TIỀN XỬ LÝ TEXT
--- =========================
+-- Chuyển review về chữ thường và tách từ
+reviews_lower = FOREACH reviews_raw GENERATE LOWER(review) AS text_lower;
+tokenized = FOREACH reviews_lower {
+    words = TOKENIZE(text_lower);
+    GENERATE FLATTEN(words) AS word;
+}
 
--- lowercase + remove ký tự đặc biệt
-reviews_clean = FOREACH reviews GENERATE 
-    id,
-    REPLACE(LOWER(review), '[^\\p{L}\\s]', '') AS review,
-    category,
-    subcategory,
-    sentiment;
+-- Loại bỏ stopword bằng LEFT JOIN
+joined = JOIN tokenized BY word LEFT OUTER, stopwords_raw BY stopword;
+filtered = FILTER joined BY stopwords_raw::stopword IS NULL;
+clean_words = FOREACH filtered GENERATE tokenized::word AS word;
 
--- tokenize
-tokens = FOREACH reviews_clean GENERATE 
-    id,
-    TOKENIZE(review) AS words;
+-- Đếm tần số từ
+word_groups = GROUP clean_words BY word;
+word_counts = FOREACH word_groups GENERATE group AS word, COUNT(clean_words) AS freq;
 
-words_flat = FOREACH tokens GENERATE 
-    id,
-    FLATTEN(words) AS word;
+-- Lọc từ có tần số > 500
+high_freq_words = FILTER word_counts BY freq > 500;
 
--- remove stopwords bằng JOIN
-joined = JOIN words_flat BY word LEFT OUTER, stopwords BY word;
+-- Sắp xếp giảm dần theo tần số (tùy chọn)
+ordered_high_freq = ORDER high_freq_words BY freq DESC;
 
-filtered = FILTER joined BY stopwords::word IS NULL;
+STORE ordered_high_freq INTO '/user/hadoop/lab02/output_bai02_wordcount' USING PigStorage('\t');
 
-result_words = FOREACH filtered GENERATE 
-    words_flat::id AS id, 
-    words_flat::word AS word;
+-- ========== 2. Thống kê số bình luận theo category ==========
+category_groups = GROUP reviews_raw BY category;
+category_counts = FOREACH category_groups GENERATE group AS category, COUNT(reviews_raw) AS count;
+STORE category_counts INTO '/user/hadoop/lab02/output_bai02_category' USING PigStorage('\t');
 
--- loại từ rỗng
-result_words_clean = FILTER result_words BY word IS NOT NULL AND word != '';
-
--- =========================
--- BÀI 2.1: WORD COUNT (>500)
--- =========================
-
-group_words = GROUP result_words_clean BY word;
-
-word_count = FOREACH group_words GENERATE 
-    group AS word,
-    COUNT(result_words_clean) AS freq;
-
-word_over_500 = FILTER word_count BY freq > 500;
-
-word_sorted = ORDER word_over_500 BY freq DESC;
-
--- =========================
--- BÀI 2.2: ĐẾM CATEGORY
--- =========================
-
--- tránh trùng (vì 1 review có nhiều dòng)
-distinct_reviews = DISTINCT reviews;
-
-group_category = GROUP distinct_reviews BY category;
-
-category_count = FOREACH group_category GENERATE 
-    group AS category,
-    COUNT(distinct_reviews) AS total;
-
-category_sorted = ORDER category_count BY total DESC;
-
--- =========================
--- BÀI 2.3: ĐẾM ASPECT (subcategory)
--- =========================
-
-group_aspect = GROUP reviews BY subcategory;
-
-aspect_count = FOREACH group_aspect GENERATE 
-    group AS aspect,
-    COUNT(reviews) AS total;
-
-aspect_sorted = ORDER aspect_count BY total DESC;
-
--- =========================
--- OUTPUT
--- =========================
-
-STORE word_sorted INTO 'output_wordcount' USING PigStorage(',');
-STORE category_sorted INTO 'output_category' USING PigStorage(',');
-STORE aspect_sorted INTO 'output_aspect' USING PigStorage(',');
-
--- debug (nếu cần)
--- DUMP word_sorted;
--- DUMP category_sorted;
--- DUMP aspect_sorted;
+-- ========== 3. Thống kê số bình luận theo aspect ==========
+aspect_groups = GROUP reviews_raw BY aspect;
+aspect_counts = FOREACH aspect_groups GENERATE group AS aspect, COUNT(reviews_raw) AS count;
+STORE aspect_counts INTO '/user/hadoop/lab02/output_bai02_aspect' USING PigStorage('\t');

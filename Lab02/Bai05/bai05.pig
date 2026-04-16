@@ -1,69 +1,49 @@
--- bai05_clean.pig
--- Tính TF-IDF và lấy top 5 từ theo (aspect, category)
+-- Bài 4: Top 5 từ xuất hiện nhiều nhất trong mỗi category (bất kể sentiment)
+-- Input: /user/hadoop/lab02/input/hotel-review.csv
+-- Output: /user/hadoop/lab02/output_top_words_by_category
 
--- Load stopwords
-stopwords = LOAD 'input/stopwords.txt' USING PigStorage() AS (stopword:chararray);
+-- Đọc dữ liệu
+reviews_raw = LOAD '/user/hadoop/lab02/input/hotel-review.csv'
+              USING PigStorage(';')
+              AS (id:int, review:chararray, category:chararray, aspect:chararray, sentiment:chararray);
 
--- Load data
-raw = LOAD 'input/hotel-review.csv' USING PigStorage(';') AS (id:int, comment:chararray, aspect:chararray, category:chararray, sentiment:chararray);
+-- Đọc stopwords
+stopwords_raw = LOAD '/user/hadoop/lab02/input/stopwords.txt' AS (stopword:chararray);
 
--- Filter empty comments
-raw = FILTER raw BY comment IS NOT NULL AND comment != '';
+-- Tiền xử lý: lowercase, tokenize, loại bỏ stopword
+reviews_lower = FOREACH reviews_raw GENERATE 
+                    category,
+                    LOWER(review) AS text_lower;
 
--- Lowercase and tokenize
-lowercased = FOREACH raw GENERATE id, LOWER(comment) AS comment_lower, aspect, category, sentiment;
-tokenized = FOREACH lowercased GENERATE id, FLATTEN(TOKENIZE(comment_lower)) AS word, aspect, category, sentiment;
+tokenized = FOREACH reviews_lower {
+    words = TOKENIZE(text_lower);
+    GENERATE category, FLATTEN(words) AS word;
+}
 
--- Remove stopwords
-joined = JOIN tokenized BY word LEFT OUTER, stopwords BY stopword;
-filtered = FILTER joined BY stopwords::stopword IS NULL;
-clean = FOREACH filtered GENERATE tokenized::id AS id, tokenized::word AS word, tokenized::aspect AS aspect, tokenized::category AS category;
-clean = FILTER clean BY word IS NOT NULL AND word != '';
+joined = JOIN tokenized BY word LEFT OUTER, stopwords_raw BY stopword;
+filtered = FILTER joined BY stopwords_raw::stopword IS NULL;
 
--- Term frequency per (aspect, category, word)
-term_group = GROUP clean BY (aspect, category, word);
-term_freq = FOREACH term_group GENERATE FLATTEN(group) AS (aspect, category, word), COUNT(clean) AS tf;
+clean_data = FOREACH filtered GENERATE 
+                 tokenized::category AS category,
+                 tokenized::word AS word;
 
--- Total terms per (aspect, category)
-group_total = GROUP clean BY (aspect, category);
-total_terms = FOREACH group_total GENERATE FLATTEN(group) AS (aspect, category), COUNT(clean) AS total_terms;
+-- Đếm tần số từ theo category và word
+word_groups = GROUP clean_data BY (category, word);
+word_counts = FOREACH word_groups GENERATE 
+                  group.category AS category,
+                  group.word AS word,
+                  COUNT(clean_data) AS freq;
 
--- Join to compute TF
-tf_joined = JOIN term_freq BY (aspect, category), total_terms BY (aspect, category);
-tf = FOREACH tf_joined GENERATE 
-    term_freq::aspect AS aspect, 
-    term_freq::category AS category, 
-    term_freq::word AS word, 
-    (double)term_freq::tf / (double)total_terms::total_terms AS tf_val;
+-- Nhóm theo category để lấy top 5 từ mỗi category
+grouped_by_category = GROUP word_counts BY category;
 
--- Document frequency: number of distinct (aspect, category) pairs containing the word
--- We need to group clean by word, then for each word count distinct (aspect, category)
--- First create a distinct pair per word
-word_ac_pairs = FOREACH clean GENERATE word, (aspect, category) AS ac_pair;
-distinct_pairs = DISTINCT word_ac_pairs;
-doc_freq = FOREACH (GROUP distinct_pairs BY word) GENERATE group AS word, COUNT(distinct_pairs) AS df;
+top5_per_category = FOREACH grouped_by_category {
+    sorted = ORDER word_counts BY freq DESC;
+    top5 = LIMIT sorted 5;
+    GENERATE 
+        group AS category,
+        top5.(word, freq) AS top_words;
+}
 
--- Total number of distinct (aspect, category) groups
-all_ac_pairs = FOREACH (GROUP clean BY (aspect, category)) GENERATE group AS ac_pair;
-total_groups = FOREACH (GROUP all_ac_pairs ALL) GENERATE COUNT(all_ac_pairs) AS total_g;
-
--- Compute TF-IDF
-tf_with_df = JOIN tf BY word LEFT OUTER, doc_freq BY word;
-tf_idf_all = CROSS tf_with_df, total_groups;
-tf_idf = FOREACH tf_idf_all GENERATE 
-    tf::aspect AS aspect, 
-    tf::category AS category, 
-    tf::word AS word, 
-    tf::tf_val AS tf_val,
-    tf::tf_val * LOG((double)total_groups::total_g / (double)doc_freq::df) AS tf_idf_val;
-
--- For each (aspect, category), get top 5 by tf_idf_val
-grouped = GROUP tf_idf BY (aspect, category);
-top5 = FOREACH grouped {
-    sorted = ORDER tf_idf BY tf_idf_val DESC;
-    limited = LIMIT sorted 5;
-    GENERATE FLATTEN(limited);
-};
-
--- Store output
-STORE top5 INTO 'Bai05/output_bai05' USING PigStorage();
+-- Lưu kết quả
+STORE top5_per_category INTO '/user/hadoop/lab02/output_top_words_by_category' USING PigStorage('\t');

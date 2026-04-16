@@ -1,60 +1,70 @@
--- =====================================================
--- bai04.pig
--- Tìm top 5 từ positive và top 5 từ negative
--- theo từng cặp (aspect, category)
--- =====================================================
+-- Bài 4: Top 5 từ tích cực và tiêu cực cho từng category
+-- Input: /user/hadoop/lab02/input/hotel-review.csv
+-- Output: /user/hadoop/lab02/output_top_positive_words (cho positive)
+--         /user/hadoop/lab02/output_top_negative_words (cho negative)
 
--- 1. Đọc stop words
-stopwords = LOAD 'input/stopwords.txt' USING PigStorage() AS (stopword:chararray);
+-- Đọc dữ liệu review
+reviews_raw = LOAD '/user/hadoop/lab02/input/hotel-review.csv'
+              USING PigStorage(';')
+              AS (id:int, review:chararray, category:chararray, aspect:chararray, sentiment:chararray);
 
--- 2. Đọc dữ liệu review (giả sử không có header)
-raw = LOAD 'input/hotel-review.csv' 
-       USING PigStorage(';') 
-       AS (id:int, comment:chararray, aspect:chararray, category:chararray, sentiment:chararray);
+-- Đọc stopwords
+stopwords_raw = LOAD '/user/hadoop/lab02/input/stopwords.txt' AS (stopword:chararray);
 
--- 3. Lọc bỏ comment rỗng
-raw = FILTER raw BY comment IS NOT NULL AND comment != '';
+-- Lọc chỉ lấy positive và negative, bỏ qua sentiment khác nếu có
+valid_reviews = FILTER reviews_raw BY (sentiment == 'positive' OR sentiment == 'negative');
 
--- 4. Chuyển chữ thường và tách từ (tokenize)
-lowercased = FOREACH raw GENERATE 
-             id, 
-             LOWER(comment) AS comment_lower,
-             aspect, category, sentiment;
+-- Xử lý văn bản: lowercase, tokenize, loại bỏ stopword
+-- Bước 1: lowercase
+reviews_lower = FOREACH valid_reviews GENERATE 
+                    id,
+                    category,
+                    sentiment,
+                    LOWER(review) AS text_lower;
 
-tokenized = FOREACH lowercased GENERATE 
-            id,
-            FLATTEN(TOKENIZE(comment_lower)) AS word,
-            aspect, category, sentiment;
+-- Bước 2: tokenize thành từng từ
+tokenized = FOREACH reviews_lower {
+    words = TOKENIZE(text_lower);
+    GENERATE id, category, sentiment, FLATTEN(words) AS word;
+}
 
--- 5. Loại bỏ stop word (left join và lọc null)
-joined = JOIN tokenized BY word LEFT OUTER, stopwords BY stopword;
-filtered = FILTER joined BY stopwords::stopword IS NULL;
+-- Bước 3: loại bỏ stopword bằng LEFT JOIN
+joined = JOIN tokenized BY word LEFT OUTER, stopwords_raw BY stopword;
+filtered = FILTER joined BY stopwords_raw::stopword IS NULL;
 
--- 6. Chỉ giữ lại các cột cần thiết và loại bỏ từ rỗng
-clean = FOREACH filtered GENERATE 
-        tokenized::id AS id,
-        tokenized::word AS word,
-        tokenized::aspect AS aspect,
-        tokenized::category AS category,
-        tokenized::sentiment AS sentiment;
+-- Chọn các trường cần thiết
+clean_data = FOREACH filtered GENERATE 
+                 tokenized::category AS category,
+                 tokenized::sentiment AS sentiment,
+                 tokenized::word AS word;
 
-clean = FILTER clean BY word IS NOT NULL AND word != '';
+-- Đếm tần số từ theo (category, sentiment, word)
+word_groups = GROUP clean_data BY (category, sentiment, word);
+word_counts = FOREACH word_groups GENERATE 
+                  group.category AS category,
+                  group.sentiment AS sentiment,
+                  group.word AS word,
+                  COUNT(clean_data) AS freq;
 
--- 7. Đếm tần suất từ theo từng nhóm (aspect, category, sentiment, word)
-word_counts = GROUP clean BY (aspect, category, sentiment, word);
-counts = FOREACH word_counts GENERATE 
-         FLATTEN(group) AS (aspect, category, sentiment, word),
-         COUNT(clean) AS freq;
+-- Gom nhóm theo (category, sentiment) để lấy top 5
+grouped_by_cat_sent = GROUP word_counts BY (category, sentiment);
 
--- 8. Với mỗi nhóm (aspect, category, sentiment), sắp xếp theo freq giảm dần và lấy top 5
-grouped_by_sentiment = GROUP counts BY (aspect, category, sentiment);
+-- Sử dụng nested FOREACH để sắp xếp và lấy top 5 cho mỗi nhóm
+top_5_per_group = FOREACH grouped_by_cat_sent {
+    -- Sắp xếp các bản ghi trong bag theo freq giảm dần
+    sorted = ORDER word_counts BY freq DESC;
+    -- Lấy 5 bản ghi đầu tiên
+    top5 = LIMIT sorted 5;
+    GENERATE 
+        group.category AS category,
+        group.sentiment AS sentiment,
+        top5.(word, freq) AS top_words;  -- bag gồm các tuple (word, freq)
+}
 
-top_words = FOREACH grouped_by_sentiment {
-    sorted = ORDER counts BY freq DESC;
-    top = LIMIT sorted 5;
-    GENERATE FLATTEN(top);
-};
+-- Tách riêng positive và negative để lưu
+positive_top5 = FILTER top_5_per_group BY sentiment == 'positive';
+negative_top5 = FILTER top_5_per_group BY sentiment == 'negative';
 
--- 9. Lưu kết quả (mỗi dòng: aspect, category, sentiment, word, freq)
-STORE top_words INTO 'Bai04/output_top_words' USING PigStorage();
-
+-- Lưu kết quả
+STORE positive_top5 INTO '/user/hadoop/lab02/output_top_positive_words' USING PigStorage('\t');
+STORE negative_top5 INTO '/user/hadoop/lab02/output_top_negative_words' USING PigStorage('\t');

@@ -1,60 +1,33 @@
--- =========================
--- LOAD DATA
--- =========================
+-- Bài 3: Xác định khía cạnh (aspect) có nhiều đánh giá tích cực nhất và tiêu cực nhất
 
-reviews = LOAD '/mnt/0498342198341420/UIT_DS_Third_Year_Second_Semester_2025_2026/BigData_DS200/Lab02/input/hotel-review.csv'
-USING PigStorage(';')
-AS (id:int, review:chararray, category:chararray, subcategory:chararray, sentiment:chararray);
+-- Đọc dữ liệu đầu vào từ HDFS (đường dẫn đã upload ở bài trước)
+reviews_raw = LOAD '/user/hadoop/lab02/input/hotel-review.csv'
+              USING PigStorage(';')
+              AS (id:int, review:chararray, category:chararray, aspect:chararray, sentiment:chararray);
 
--- =========================
--- TÁCH POSITIVE / NEGATIVE
--- =========================
+-- Lọc các dòng có sentiment xác định (chỉ giữ 'positive' và 'negative')
+valid_reviews = FILTER reviews_raw BY (sentiment == 'positive' OR sentiment == 'negative');
 
-positive_reviews = FILTER reviews BY sentiment == 'positive';
-negative_reviews = FILTER reviews BY sentiment == 'negative';
+-- Nhóm dữ liệu theo aspect và sentiment, sau đó đếm số lượng
+grouped = GROUP valid_reviews BY (aspect, sentiment);
+counts = FOREACH grouped GENERATE 
+             group.aspect AS aspect,
+             group.sentiment AS sentiment,
+             COUNT(valid_reviews) AS cnt;
 
--- =========================
--- ĐẾM THEO ASPECT (subcategory)
--- =========================
+-- Tách riêng hai loại sentiment
+positive_counts = FILTER counts BY sentiment == 'positive';
+negative_counts = FILTER counts BY sentiment == 'negative';
 
--- POSITIVE
-group_pos = GROUP positive_reviews BY subcategory;
+-- ===== Tìm aspect có nhiều đánh giá tích cực nhất =====
+-- Sắp xếp giảm dần theo cnt và lấy bản ghi đầu tiên
+ordered_positive = ORDER positive_counts BY cnt DESC;
+top_positive = LIMIT ordered_positive 1;
 
-pos_count = FOREACH group_pos GENERATE 
-    group AS aspect,
-    COUNT(positive_reviews) AS total_positive;
+-- ===== Tìm aspect có nhiều đánh giá tiêu cực nhất =====
+ordered_negative = ORDER negative_counts BY cnt DESC;
+top_negative = LIMIT ordered_negative 1;
 
--- NEGATIVE
-group_neg = GROUP negative_reviews BY subcategory;
-
-neg_count = FOREACH group_neg GENERATE 
-    group AS aspect,
-    COUNT(negative_reviews) AS total_negative;
-
--- =========================
--- SẮP XẾP GIẢM DẦN
--- =========================
-
-pos_sorted = ORDER pos_count BY total_positive DESC;
-neg_sorted = ORDER neg_count BY total_negative DESC;
-
--- =========================
--- LẤY TOP 1
--- =========================
-
-top_positive = LIMIT pos_sorted 1;
-top_negative = LIMIT neg_sorted 1;
-
--- =========================
--- OUTPUT
--- =========================
-
-STORE pos_sorted INTO 'output_positive_aspect' USING PigStorage(',');
-STORE neg_sorted INTO 'output_negative_aspect' USING PigStorage(',');
-
-STORE top_positive INTO 'output_top_positive' USING PigStorage(',');
-STORE top_negative INTO 'output_top_negative' USING PigStorage(',');
-
--- Debug
--- DUMP top_positive;
--- DUMP top_negative;
+-- Lưu kết quả vào HDFS
+STORE top_positive INTO '/user/hadoop/lab02/output_positive_aspect' USING PigStorage('\t');
+STORE top_negative INTO '/user/hadoop/lab02/output_negative_aspect' USING PigStorage('\t');

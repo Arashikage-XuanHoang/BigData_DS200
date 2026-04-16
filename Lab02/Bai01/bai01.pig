@@ -1,44 +1,35 @@
--- bai01.pig
--- Tiền xử lý: lowercase, tokenize, loại bỏ stop words
--- Dữ liệu vào: input/hotel-review.csv (; delimiter, không header)
--- Stop words: input/stopwords.txt
+-- Bước 1: Đọc dữ liệu từ hotel-review.csv (phân cách bằng dấu ';')
+reviews_raw = LOAD '/user/hadoop/lab02/input/hotel-review.csv'
+              USING PigStorage(';') 
+              AS (id:int, review:chararray, category:chararray, aspect:chararray, sentiment:chararray);
 
--- Đọc stop words
-stopwords = LOAD 'input/stopwords.txt' USING PigStorage() AS (stopword:chararray);
+-- Bước 2: Đọc danh sách stopwords (mỗi dòng một từ)
+stopwords_raw = LOAD '/user/hadoop/lab02/input/stopwords.txt' AS (stopword:chararray);
 
--- Đọc dữ liệu review
-raw = LOAD 'input/hotel-review.csv' 
-       USING PigStorage(';') 
-       AS (id:int, comment:chararray, aspect:chararray, category:chararray, sentiment:chararray);
+-- Bước 3: Xử lý từng bình luận
+--    a) Chuyển về chữ thường (LOWER)
+--    b) Tách thành các từ riêng biệt (TOKENIZE)
+--    c) Loại bỏ stopword
+reviews_lower = FOREACH reviews_raw GENERATE 
+                    id, 
+                    LOWER(review) AS text_lower;
 
--- Loại bỏ dòng comment rỗng
-raw = FILTER raw BY comment IS NOT NULL AND comment != '';
+-- Tách từ và trải phẳng thành mỗi dòng một từ
+tokenized = FOREACH reviews_lower {
+    words = TOKENIZE(text_lower);
+    GENERATE id, FLATTEN(words) AS word;
+}
 
--- Lowercase comment
-lowercased = FOREACH raw GENERATE 
-              id, 
-              LOWER(comment) AS comment_lower,
-              aspect, category, sentiment;
+-- Kết hợp với stopwords để loại bỏ (dùng LEFT JOIN)
+joined = JOIN tokenized BY word LEFT OUTER, stopwords_raw BY stopword;
 
--- Tokenize (tách từ theo khoảng trắng)
-tokenized = FOREACH lowercased GENERATE 
-            id,
-            FLATTEN(TOKENIZE(comment_lower)) AS word,
-            aspect, category, sentiment;
+-- Giữ lại những từ không nằm trong danh sách stopword
+filtered = FILTER joined BY stopwords_raw::stopword IS NULL;
 
--- Loại bỏ stop word (left join với stopwords, giữ lại word không khớp)
-joined = JOIN tokenized BY word LEFT OUTER, stopwords BY stopword;
-filtered = FILTER joined BY stopwords::stopword IS NULL;
+-- Chọn các trường cần thiết để lưu trữ
+clean_words = FOREACH filtered GENERATE 
+                  tokenized::id AS review_id, 
+                  tokenized::word AS clean_word;
 
--- Gom nhóm theo id để tạo lại danh sách từ đã lọc
-grouped = GROUP filtered BY id;
-
--- Lấy các từ đã lọc và giữ lại các trường aspect, category, sentiment (lấy từ dòng đầu mỗi nhóm)
-final = FOREACH grouped {
-          first = LIMIT filtered 1;
-          words = FOREACH filtered GENERATE word;
-          GENERATE group AS id, words AS filtered_words, FLATTEN(first.aspect) AS aspect, FLATTEN(first.category) AS category, FLATTEN(first.sentiment) AS sentiment;
-        };
-
--- Lưu kết quả (có thể lưu dưới dạng CSV hoặc text)
-STORE final INTO 'Bai01/output_bai01' USING PigStorage();
+-- Bước 4: Lưu kết quả (mỗi từ trên một dòng)
+STORE clean_words INTO '/user/hadoop/lab02/output_bai01' USING PigStorage('\t');
