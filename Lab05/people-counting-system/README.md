@@ -27,7 +27,7 @@ giao tiếp với nhau qua **Apache Kafka** (message broker) và lưu trữ kế
 - **MongoDB** — NoSQL document store, phù hợp lưu dữ liệu JSON bán cấu trúc (bounding box có số lượng phần tử thay đổi theo từng frame).
 - **YOLOv8 (Ultralytics)** — mô hình object detection cho bước xử lý.
 
-> Lưu ý: input demo chỉ gồm 1-2 ảnh tĩnh để chạy nhanh trên máy cấu hình thấp, nhưng kiến trúc
+> Bài tập: input demo chỉ gồm 1-2 ảnh tĩnh để chạy nhanh trên máy cấu hình thấp, nhưng kiến trúc
 > (Kafka streaming + tách 3 service độc lập) hoàn toàn tổng quát hóa được cho luồng video/camera
 > thực tế với throughput lớn.
 
@@ -76,7 +76,7 @@ docker compose logs -f storage-server
 docker compose down
 ```
 
-Khi chạy, bạn sẽ thấy log dạng:
+Khi chạy sẽ thấy log dạng:
 
 ```
 capture-server     | [capture-server] Sent frame_id=... file=sample_01.jpg -> topic 'raw-frames'
@@ -136,15 +136,5 @@ Các biến môi trường có thể chỉnh trong `docker-compose.yml`:
 Muốn dùng camera thật/RTSP thay vì ảnh tĩnh: sửa `capture.py` để đọc qua `cv2.VideoCapture(0)`
 hoặc URL RTSP, encode mỗi frame bằng `cv2.imencode(".jpg", frame)` rồi gửi lên Kafka tương tự.
 
-## 7. Hướng dẫn nộp bài qua GitHub
-
-```bash
-git init
-git add .
-git commit -m "People counting system: Kafka + YOLOv8 + MongoDB pipeline"
-git branch -M main
-git remote add origin <link-repo-github-cua-ban>
-git push -u origin main
-```
 
 
